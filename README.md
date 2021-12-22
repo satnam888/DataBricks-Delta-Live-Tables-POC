@@ -28,40 +28,40 @@ At end of each (sceanrio) pipeline run, results can be checked using Notbook SQL
 ### Scenarios are detailed by json file with overall contents below
 (see file: `POC_1_create_json_scenarios`)
 
-Scenario 1, Occurred: 2021-12-01 
+Scenario 1, Occurred: 2021-12-01 , Order:H1=Header+2 Order Lines L1,L2
 ```
-SOH_1.json: {"HID":"H1","HDATE":"2021-12-01","HCUST":"C1","HCUSTNAME":"Charlie"}           -- NEW HEADER SO:H1
-SOL_1.json: {"HID":"H1","LID":"L1","LDATE":"2021-12-01","PROD":"P1","AMT":13}             -- NEW LINE L1 for SO:H1
-            {"HID":"H1","LID":"L2","LDATE":"2021-12-01","PROD":"P2","AMT":17}             -- NEW LINE L2 for SO:H1
-```
-
-Scenario 2, Occurred: 2021-12-02  
-```
-SOH_2.json: {"HID":"29H99","HDATE":"2021-12-02","HCUST":"C2","HCUSTNAME":"Bobby"}          -- NEW HEADER SO:29H99
-SOL_2.json: {"HID":"H1","LID":"L3","LDATE":"2021-12-02","PROD":"P3","AMT":24}             -- NEW LINE for SO:H1
-            {"HID":"H1","LID":"L2","LDATE":"2021-12-02","PROD":"P2","AMT":25}             -- AMEND Qty for L2 on SO:H1
+SOH_1.json: {"HID":"H1","HDATE":"2021-12-01","HCUST":"C1","HCUSTNAME":"Charlie"}
+SOL_1.json: {"HID":"H1","LID":"L1","LDATE":"2021-12-01","PROD":"P1","AMT":13}
+            {"HID":"H1","LID":"L2","LDATE":"2021-12-01","PROD":"P2","AMT":17}
 ```
 
-Scenario 3, Occurred: 2021-12-03 
+Scenario 2, Occurred: 2021-12-02,  Order:29H99 Header. Order:H1=Line L3, Line 2 Edit
 ```
-SOH_3.json:  "//"  -- ****BAD Data****- see Quality Constraints for this being skipped.   -- NO HEADERS
-SOL_3.json:  {"HID":"29H99", "LID":"L4","LDATE":"2021-12-02","PROD":"P5","AMT":35}        -- NEW LATE Arriving LINE for SO:29H99
-             {"HID":"3H3333","LID":"L5","LDATE":"2021-12-03","PROD":"P6","AMT":37}        -- New Line for SO:3H3333 (whose HEADER never received - but build default HEADER anyway)
+SOH_2.json: {"HID":"29H99","HDATE":"2021-12-02","HCUST":"C2","HCUSTNAME":"Bobby"}
+SOL_2.json: {"HID":"H1","LID":"L3","LDATE":"2021-12-02","PROD":"P3","AMT":24}
+            {"HID":"H1","LID":"L2","LDATE":"2021-12-02","PROD":"P2","AMT":25}
 ```
 
-Scenario 4, Occurred: 2021-12-04 
+Scenario 3, Occurred: 2021-12-03,  Order:29H99=Line L4 (Late), Order:3H3333=No Header, Line L5 (Early), BAD SOH file!
 ```
-SOH_4.json:  <****Not Created****>                                                        -- NO SOH headers file received
-SOL_4.json: {"HID":"29H99", "LID":"L6","LDATE":"2021-12-04","PROD":"P6","AMT":10}         -- NEW LINE L6 for SO:29H99
-            {"HID":"29H99", "LID":"L4","LDATE":"2021-12-04","PROD":"P5","AMT":0 }         -- DELETE LINE L4 on SO:29H99 so will be flagged "IsLineDelete=True"
-            {"HID":"3H3333","LID":"L5","LDATE":"2021-12-04","PROD":"P6","AMT":0 }         -- DELETE LINE L5 on SO:3H3333 (Header was never actually Received)  SOL will be flagged "IsLineDelete=True"  (**)
+SOH_3.json:  "//"      ****BAD Data****- see Quality Constraints for this being skipped. 
+SOL_3.json:  {"HID":"29H99", "LID":"L4","LDATE":"2021-12-02","PROD":"P5","AMT":35} 
+             {"HID":"3H3333","LID":"L5","LDATE":"2021-12-03","PROD":"P6","AMT":37}
+```
+
+Scenario 4, 2021-12-04, Order:29H99= Add 1 Line, Delete 1 Line , Order:3H3333=Delete Order Line received yesterday
+```
+SOH_4.json:  <****Not Created****>   
+SOL_4.json: {"HID":"29H99", "LID":"L6","LDATE":"2021-12-04","PROD":"P6","AMT":10}
+            {"HID":"29H99", "LID":"L4","LDATE":"2021-12-04","PROD":"P5","AMT":0 }
+            {"HID":"3H3333","LID":"L5","LDATE":"2021-12-04","PROD":"P6","AMT":0 }
 ```
 
 *Suspect that we need to say if all lines in SOL Array are "IsLineDelete=True"*
 *then set SOH column "IsOrderDeleted=True" also. At moment it is not changed but Scenario 5 does mark SOH as Deleted*
 
-Scenario 5, 2021-12-05
+Scenario 5, 2021-12-05, Order:3H3333  Deleted
 ```
-SOH_5.json: {"HID":"3H3333","HDATE":"2021-12-05","HCUST":"","HCUSTNAME":"Alfred"}       -- DELETE  Header 3H3333 (Marked as Delted)
-SOL_5.json: <****Not Created****>                                                         -- NO SOL headers file received 
+SOH_5.json: {"HID":"3H3333","HDATE":"2021-12-05","HCUST":"","HCUSTNAME":"Alfred"} 
+SOL_5.json: <****Not Created****>   
 ```
