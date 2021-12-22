@@ -7,7 +7,7 @@ DAG: Final Table is SOH + ARRAY(SOL) LATEST view after edits
 A  purely learning exercise for a new Databricks feature called "Delta Live Tables" (DLT) which is currently under pre-release stage.
 
 ### Goal: 
-<p>Create Pipeline, which when run over 5 scenarios (detailed below), ingests and processes/transforms raw json Order+Lines data. Final table showing correct "latest" view of an Order including Order lines array.</p>
+Create a deliberately over complex Pipeline, which when run over 5 scenarios (detailed below), ingests and processes/transforms raw json Order+Lines data with the final materialised table `SOH_with_SOL_Array_latest` showing the "latest" view of an Order along with a STRUCT ARRAY of Order lines. This table can be queried as a single table to get ALL data for a SINGLE order.
 
 ### Pipeline details
 
@@ -15,6 +15,8 @@ Main PIPELINE Notebook is called : `POC_2_pipeline.iynb` with these observations
 * "Watermarked" All Incremental Data with a fixed value `unix_micros(current_timestamp())` referenced as `AppendWaterMark`.
 * All Incremental DLT are partioned using a calculated extract of Order Number - this could easily be a DATE value.
 * All DLT have `pipelines.autoOptimize.zOrderCols` optimisation on Order Number (small dataset so needs to be proven over large dataset)
+* DLT cant deal with complex aggregations (eg DISTINCT) so until table `SOH_with_SOL_Array_latest` is calculated, Changes are reflected multiple times at intermediuate stages
+            
 
 For Pipeline config I have used these values but any values of own choosing are OK:
 1. Target Location for saveing DLT data (`"storage": "/mnt/poc_pipeline_2"`)
