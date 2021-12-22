@@ -1,4 +1,4 @@
-# DataBricks-Delta-Live-Tables-POC  
+## DataBricks-Delta-Live-Tables-POC  
 
 <p align="center">
 Sales Order+Lines combined Pipeline<BR>
@@ -8,10 +8,10 @@ DAG: Final Table is SOH + ARRAY(SOL) LATEST view after edits<BR>
 
 A  purely learning exercise for a new Databricks feature called "Delta Live Tables" (DLT) which is currently under pre-release stage.
 
-## Goal: 
+### Goal: 
 <p>Create Pipeline, which when run over 5 scenarios (detailed below), ingests and processes/transforms raw json Order+Lines data. Final table showing correct "latest" view of an Order including Order lines array.</p>
 
-## Pipeline details
+### Pipeline details
 
 Main PIPELINE Notebook is called : `POC_2_pipeline.iynb` with these observations notes:
 * "Watermarked" All Incremental Data with a fixed value `unix_micros(current_timestamp())` referenced as `AppendWaterMark`.
@@ -25,7 +25,7 @@ For Pipeline config I have used these values but any values of own choosing are 
 At end of each (sceanrio) pipeline run, results can be checked using Notbook SQL command:
 `select * from DLT_DB_POC_2.SOH_with_SOL_Array_latest`
             
-## Scenarios are detailed by json file contents below
+### Scenarios are detailed by json file (`POC_1_create_json_scenarios`) with overall contents below
 
 Scenario 1, Occurred: 2021-12-01 
 ```
