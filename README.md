@@ -21,7 +21,7 @@ At =end of each sceanrio run, results can be checked using : <B>select * from DL
 
 
 Scenarios are detailed by json file contents below:
-
+<code>
 -- Scenario 1, Occurred: 2021-12-01 
 -- SOH_1.json: {"HID":"H1","HDATE":"2021-12-01","HCUST":"C1","HCUSTNAME":"Satnam"}           -- NEW HEADER SO:H1
 -- SOL_1.json: {"HID":"H1","LID":"L1","LDATE":"2021-12-01","PROD":"P1","AMT":13}             -- NEW LINE L1 for SO:H1
@@ -47,3 +47,4 @@ Scenarios are detailed by json file contents below:
 -- Scenario 4, 2021-12-04, Incoiming Order:29H99  Add 1 Line, Delete 1 Line ,   Order:3H3333 Delete Order Line received yesterday (without header)
 -- SOH_5.json: {"HID":"3H3333","HDATE":"2021-12-04","HCUST":"","HCUSTNAME":"Kurt"}           -- DELETE  Header 3H3333  -- but does this also mean ZAP lines ... hmmm  SOH will be flagged "IsOrderDelete=True"  
 -- SOL_5.json: <****Not Created****>                                                         -- NO SOL headers file received 
+  </code>
