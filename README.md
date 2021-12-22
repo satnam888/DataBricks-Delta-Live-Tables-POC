@@ -1,6 +1,6 @@
 <p align="center">
 Sales Order+Lines combined Pipeline<BR>
-<img src="DAG_DLT_pipeline.png" width="50%" height="50%"/><BR>
+<img src="assets/DAG_DLT_pipeline.png" width="50%" height="50%"/><BR>
 DAG: Final Table is SOH + ARRAY(SOL) LATEST view after edits
 </p>
 
@@ -11,7 +11,7 @@ Create a (deliberately over complex) Pipeline, which when run over 5 scenarios (
 
 ### Pipeline details
 
-Main PIPELINE Notebook is called : `POC_2_pipeline.iynb` with these observations notes:
+Main PIPELINE Notebook is called : `POC_2_pipeline.sql` with these observations notes:
 * "Watermarked" All Incremental Data with a fixed value `unix_micros(current_timestamp())` referenced as `AppendWaterMark`.
 * All Incremental DLT are partioned using a calculated extract of Order Number - this could easily be a DATE value.
 * All DLT have `pipelines.autoOptimize.zOrderCols` optimisation on Order Number (small dataset so needs to be proven over large dataset)
@@ -21,12 +21,13 @@ Main PIPELINE Notebook is called : `POC_2_pipeline.iynb` with these observations
 For Pipeline config I have used these values but any values of own choosing are OK:
 1. Target Location for saveing DLT data (`"storage": "/mnt/poc_pipeline_2"`)
 2. Name of the Database to use for registering the Materialised DLT tables:  (`"target": "DLT_DB_POC_2"`)
-3. Notebook to Create Scenario files per 5 scenario runs is: `POC_1_create_json_scenarios`
+3. Notebook to Create Scenario files per 5 scenario runs is: `POC_1_create_json_scenarios.scala`
 At end of each (sceanrio) pipeline run, results can be checked using Notbook SQL command:
 `select * from DLT_DB_POC_2.SOH_with_SOL_Array_latest`
             
 ### Scenarios are detailed by json file with overall contents below
-(see file: `POC_1_create_json_scenarios`)
+(see file: `POC_1_create_json_scenarios.scala`)
+POC_3_Queries.sql
 
 Scenario 1, Occurred: 2021-12-01 , Order:H1=Header+2 Order Lines L1,L2
 ```
