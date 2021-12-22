@@ -23,7 +23,8 @@ For Pipeline config I have used these values but any values of own choosing are 
 At end of each (sceanrio) pipeline run, results can be checked using Notbook SQL command:
 `select * from DLT_DB_POC_2.SOH_with_SOL_Array_latest`
             
-### Scenarios are detailed by json file (`POC_1_create_json_scenarios`) with overall contents below
+### Scenarios are detailed by json file with overall contents below
+(see file: `POC_1_create_json_scenarios`)
 
 Scenario 1, Occurred: 2021-12-01 
 ```
@@ -59,6 +60,6 @@ SOL_4.json: {"HID":"29H99", "LID":"L6","LDATE":"2021-12-04","PROD":"P6","AMT":10
 
 Scenario 5, 2021-12-05
 ```
-SOH_5.json: {"HID":"3H3333","HDATE":"2021-12-05","HCUST":"","HCUSTNAME":"BlahBlah"}       -- DELETE  Header 3H3333 (Marked as Delted)
+SOH_5.json: {"HID":"3H3333","HDATE":"2021-12-05","HCUST":"","HCUSTNAME":"Alfred"}       -- DELETE  Header 3H3333 (Marked as Delted)
 SOL_5.json: <****Not Created****>                                                         -- NO SOL headers file received 
 ```
