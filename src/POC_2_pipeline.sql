@@ -33,7 +33,7 @@
 -- COMMAND ----------
 
 -- DBTITLE 1,Get a Unique ever Increasing value (like a UUID() but needs to be sortable) to WaterMark all Data for THIS run so we can use it to construct and join inside/outside this pipeline
-CREATE TEMPORARY LIVE TABLE PipeLineVars AS  SELECT unix_micros(current_timestamp()) AS AppendWaterMark;
+CREATE TEMPORARY LIVE TABLE PipeLineVars AS  SELECT CAST(unix_micros(current_timestamp()) AS BIGINT) AS AppendWaterMark;
 
 -- COMMAND ----------
 
@@ -158,7 +158,7 @@ FROM STREAM(live.B0_inc_SOL_raw_json) L
 
 -- DBTITLE 1,Use Incremental INGESTED data to work out which ORDERS (across SOH/SOL) we need to consider for appending to existing tables.
 CREATE INCREMENTAL LIVE TABLE B2_inc_SOHL_keys_this_run
-PARTITIONED BY (AppendWaterMark,OrdNumDiv1K)
+PARTITIONED BY (AppendWaterMark,OrdNumDiv1K) -- can we use cointrtaint to eliminate duplicates!  + Quaraninte s- GOOD FAIL
 COMMENT "Bronze Stage 2 DLT Incremental INGESTED SOH/SOL data to work out which ORDERS we need to (append) build going forward."
 TBLPROPERTIES ("Quality" = "Silver", "HasPII" = "MayBe", "pipelines.autoOptimize.zOrderCols" = "OrdNum", "pipelines.cdc.tombstoneGCThresholdInSeconds" = "900")
 AS 
@@ -242,15 +242,17 @@ COMMENT "Silver Stage 0 DLT Latest SOL details for filtering and merging purpose
 TBLPROPERTIES ("Quality" = "Silver", "HasPII" = "MayBe", "pipelines.autoOptimize.zOrderCols" = "OrdNum",  "pipelines.cdc.tombstoneGCThresholdInSeconds" = "900")
 AS 
 SELECT  -- Get Latest SOL per Line Id -- may be dup-licates HERE for now!
-    CDC.AppendWaterMark AS AppendWaterMark,
+    CDC.AppendWaterMark AS LatestAppendWaterMark,       -- we will use THIS AppendWaterMark to pick what we call the "latest" later on
     CDC.OrdNumDiv1K AS OrdNumDiv1K,
     CDC.OrdNum AS OrdNum,
     SOL.LineId AS LineId,
-    SOL.MaxOccurred AS Occurred                      -- we will use Occured to pick what we call the "latest" later on
+    SOL.MaxOccurred AS Occurred,                     -- we will use Occured to pick what we call the "latest" later on
+    SOL.MaxReceived AS Received,                     -- we will use Received to pick what we call the "latest" later on
+    SOL.PriorAppendWaterMark AS AppendWaterMark -- Belt&Braces: may be use this to limit scope lines to consider in next few steps & reloads/replays etc.
 FROM 
   STREAM(live.B2_inc_SOHL_keys_this_run) AS CDC         -- list of keys to update using data that has now gone into actual live tables via stream now or past runs
   JOIN (                                              -- we DONT use stream(live.B1_inc_SOL_ingest) as we need to get data even if from a previous run
-        SELECT OrdNumDiv1K, OrdNum, LineId, MAX(Occurred) as MaxOccurred
+        SELECT OrdNumDiv1K, OrdNum, LineId, MAX(Occurred) as MaxOccurred, MAX(Received) as MaxReceived, MAX(AppendWaterMark) AS PriorAppendWaterMark
         FROM   live.B1_inc_SOL_ingest
         GROUP BY OrdNumDiv1K,OrdNum,LineId
      ) AS SOL
@@ -269,23 +271,35 @@ COMMENT "Silver Stage 1 DLT Latest SOL data for an update session."
 TBLPROPERTIES ("Quality" = "Silver", "HasPII" = "MayBe", "pipelines.autoOptimize.zOrderCols" = "OrdNum",  "pipelines.cdc.tombstoneGCThresholdInSeconds" = "900")
 AS 
 SELECT  -- Get Latest SOL per Line Id - may still be duplicates if duplicate incoming files have been absorbed somehow
-    OrdLines.AppendWaterMark AS AppendWaterMark,
+    OrdLines.LatestAppendWaterMark AS AppendWaterMark,   -- always user NOW for apppending as latest view of SOL
     OrdLines.OrdNumDiv1K AS OrdNumDiv1K,
     OrdLines.OrdNum AS OrdNum,
     OrdLines.LineId AS LineId,
+    LDET.IsLineDeleted AS IsLineDeleted,                                -- used to filter out from final LATEST tables
     OrdLines.Occurred AS Occurred,
-    SOL.Received AS Received,
-    SOL.LatestLineData AS PerLineData
+    OrdLines.Received AS Received,
+    OrdLines.AppendWaterMark AS MostRecentLineAppendWaterMark,
+    STRUCT(
+        -- joined cols have to be referenced as LEFT table fields
+        OrdLines.LineId AS LineId,    
+        OrdLines.Occurred AS Occurred,
+        OrdLines.Received AS Received,
+        OrdLines.AppendWaterMark AS MostRecentLineAppendWaterMark,      -- keep this watermark here in case its useful
+        OrdLines.LatestAppendWaterMark AS AppendWaterMark,              -- keep this watermark here in case its useful
+        -- now all LDET non-joined columns presented here
+        LDET.Prod AS Prod,    
+        LDET.Amt AS Amt
+    ) AS PerLineData
 FROM 
   STREAM(live.S0_inc_SOL_latest_unduped_for_filter) AS OrdLines         -- list of keys to update using data that has now gone into actual live tables via stream now or past runs
-  JOIN (                                                                -- we DONT use stream(live.B1_inc_SOL_ingest) as we need to get data even if from a previous run if available
-        SELECT OrdNumDiv1K, OrdNum, LineId, Occurred, MAX(LDET.Received) as Received, MAX(STRUCT(LDET.*)) AS LatestLineData
-        FROM   live.B1_inc_SOL_ingest AS LDET
-        GROUP BY OrdNumDiv1K,OrdNum,LineId,Occurred
-       ) AS SOL
-     USING (OrdNumDiv1K,OrdNum,LineId,Occurred)
--- WHERE NOT LDET.IsLineDeleted
-
+  JOIN  live.B1_inc_SOL_ingest AS LDET                                  -- we DONT use stream(live.B1_inc_SOL_ingest) as we need to get data even if from a previous run if available
+  USING (OrdNumDiv1K,OrdNum,LineId,Occurred,Received,AppendWaterMark)
+--  (                                                                -- we DONT use stream(live.B1_inc_SOL_ingest) as we need to get data even if from a previous run if available
+--        SELECT OrdNumDiv1K, OrdNum, LineId, Occurred,Received,AppendWaterMark, MAX(STRUCT(LDET.*)) AS LatestLineData
+--        FROM   live.B1_inc_SOL_ingest AS LDET
+--        GROUP BY OrdNumDiv1K,OrdNum,LineId,Occurred,Received,AppendWaterMark
+--       ) AS SOL
+--     USING (OrdNumDiv1K,OrdNum,LineId,Occurred)
 
 -- COMMAND ----------
 
@@ -304,8 +318,9 @@ SELECT                                       -- Outer query build overall latest
   SOL.OrdNum AS OrdNum,
   MAX(SOL.Occurred) AS Occurred,
   MAX(SOL.Received) AS Received,
-  SIZE(COLLECT_SET(SOL.LineId)) AS LineCnt,
-  COLLECT_SET(SOL.PerLineData) AS Lines
+  MAX(SOL.MostRecentLineAppendWaterMark) AS MostRecentLineAppendWaterMark,         -- may be useful later - lkeave here for now
+  SIZE(COLLECT_SET(SOL.LineId) FILTER(WHERE NOT SOL.IsLineDeleted)) AS LineCnt,    -- Using FILTER(WHERE NOT SOL.IsLineDeleted) we STILL build the SOL array so
+  COLLECT_SET(SOL.PerLineData) FILTER(WHERE NOT SOL.IsLineDeleted)  AS Lines       -- we should still have net effect of BLANKING out deleted lines in SOH_with_SOL_Array_latest
 FROM 
   STREAM(live.S1_inc_SOL_latest_unduped_subquery) AS SOL
 GROUP BY 
@@ -334,9 +349,24 @@ SELECT
   COALESCE(SOH.Occurred,SOL.Occurred) AS Occurred,   -- default to SOL value in case SOH still not received
   COALESCE(SOH.Received,SOL.Received) AS Received,   -- default to SOL value in case SOH still not received
   SOH.IsOrderDeleted AS IsOrderDeleted,
+  SOH.IsOrderDeleted AS IsOrderDeleted2,
   SOH.Cust AS Cust,
   COALESCE(SOL.LineCnt,0) AS LineCnt,
-  SOL.Lines
+  SOL.Lines,
+  -- LogicalOrderOfCdcEvents ends up equivalent to Sequencing by (Occurred,Received,LatestLineVersion,CurrentTimestamp)
+  -- BIGINT can take a number as higher than 100000000000000000 which is way bigger than any unix_micros() 
+  -- so a strigified concat of these can be relied on to be in correct order to UPSERT to SOH_with_SOL_Array_latest
+CONCAT(  CAST(100000000000000000 + COALESCE(unix_micros(GREATEST(SOH.Occurred,SOL.Occurred)),0) AS STRING),     
+         CAST(100000000000000000 + COALESCE(unix_micros(GREATEST(SOH.Received,SOL.Received)),0) AS STRING),
+         CAST(100000000000000000 + COALESCE(SOL.MostRecentLineAppendWaterMark,0) AS STRING),           -- Extra sequencing to pick very latest S1_inc_SOL_latest_unduped as final update
+         CAST(100000000000000000 + COALESCE(CDC.AppendWaterMark,0) AS STRING)
+  )    AS LogicalOrderOfCdcEvents ,
+CONCAT(  CAST(100000000000000000 + COALESCE(unix_micros(GREATEST(SOH.Occurred,SOL.Occurred)),0) AS STRING),     
+         CAST(100000000000000000 + COALESCE(unix_micros(GREATEST(SOH.Received,SOL.Received)),0) AS STRING),
+         CAST(100000000000000000 + COALESCE(SOL.MostRecentLineAppendWaterMark,0) AS STRING),           -- Extra sequencing to pick very latest S1_inc_SOL_latest_unduped as final update
+         CAST(100000000000000000 + COALESCE(CDC.AppendWaterMark,0) AS STRING)
+  )    AS LogicalOrderOfCdcEvents2
+  
 FROM 
   STREAM(live.B2_inc_SOHL_keys_this_run) AS CDC -- list of keys to update using data that has now gone into live tables via stream (this is primary table for left joining to  as SOH may not exist yet)
 
@@ -350,17 +380,33 @@ LEFT JOIN -- Use last know version of SOL(ARRAY) in case not in STREAM() - but i
 -- COMMAND ----------
 
 -- DBTITLE 1,FINALLY: Materialise (rebuild) latest de-duped table for primary queries.
-CREATE LIVE TABLE SOH_with_SOL_Array_latest
+-- CREATE LIVE TABLE SOH_with_SOL_Array_latest
+-- PARTITIONED BY (OrdNumDiv1K)
+-- COMMENT "Silver Stage 3 DLT Presenting a recalculated LATEST SOH+ARRAY(SOL) for rapid base reporting and building to GOLD layers."
+-- TBLPROPERTIES ("Quality" = "Silver", "HasPII" = "MayBe", "pipelines.autoOptimize.zOrderCols" = "OrdNum,Occurred,Received",  "pipelines.cdc.tombstoneGCThresholdInSeconds" = "900")
+-- AS 
+-- SELECT 
+--    * EXCEPT (DeDupHdrRow)
+-- FROM (
+--         SELECT 
+--           * EXCEPT (AppendWaterMark),  -- AppendWaterMark shouldnt be needed beyond this point and allows INCREMENTAL to be efficient
+--           ROW_NUMBER() OVER (PARTITION BY OrdNumDiv1K, OrdNum ORDER BY Occurred DESC, Received DESC, AppendWaterMark Desc) AS DeDupHdrRow 
+--         FROM live.S2_inc_SOHL_array_unduped 
+--      )
+-- WHERE DeDupHdrRow = 1
+
+
+-- COMMAND ----------
+
+CREATE INCREMENTAL LIVE TABLE SOH_with_SOL_Array_latest
 PARTITIONED BY (OrdNumDiv1K)
 COMMENT "Silver Stage 3 DLT Presenting a recalculated LATEST SOH+ARRAY(SOL) for rapid base reporting and building to GOLD layers."
-TBLPROPERTIES ("Quality" = "Silver", "HasPII" = "MayBe", "pipelines.autoOptimize.zOrderCols" = "OrdNum,Occurred,Received",  "pipelines.cdc.tombstoneGCThresholdInSeconds" = "900")
-AS 
-SELECT 
-   * EXCEPT (DeDupHdrRow)
-FROM (
-        SELECT 
-          * EXCEPT (AppendWaterMark),  -- AppendWaterMark shouldnt be needed beyond this point and allows INCREMENTAL to be efficient
-          ROW_NUMBER() OVER (PARTITION BY OrdNumDiv1K, OrdNum ORDER BY Occurred DESC, Received DESC, AppendWaterMark Desc) AS DeDupHdrRow 
-        FROM live.S2_inc_SOHL_array_unduped 
-     )
-WHERE DeDupHdrRow = 1
+TBLPROPERTIES ("Quality" = "Silver", "HasPII" = "MayBe", "pipelines.autoOptimize.zOrderCols" = "OrdNum,Occurred,Received",  "pipelines.cdc.tombstoneGCThresholdInSeconds" = "900");
+
+APPLY CHANGES INTO live.SOH_with_SOL_Array_latest 
+FROM stream(live.S2_inc_SOHL_array_unduped)
+  KEYS (OrdNumDiv1K, OrdNum)
+APPLY AS DELETE WHEN IsOrderDeleted2
+SEQUENCE BY LogicalOrderOfCdcEvents2
+COLUMNS * EXCEPT(IsOrderDeleted2,LogicalOrderOfCdcEvents2)
+;
