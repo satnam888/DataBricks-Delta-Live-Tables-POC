@@ -1,7 +1,7 @@
 <p align="center">
 Sales Order+Lines combined Pipeline<BR>
 <img src="assets/DAG_DLT_pipeline.png" width="50%" height="50%"/><BR>
-DAG: Final Table is SOH + ARRAY(SOL) LATEST view after edits
+DAG: Final Table is self healing SOH + ARRAY(SOL) LATEST portrait after edits
 </p>
 
 A  purely learning exercise for a new Databricks feature called "Delta Live Tables" (DLT) which is currently under pre-release stage.
