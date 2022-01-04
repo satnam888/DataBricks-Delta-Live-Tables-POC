@@ -1,4 +1,14 @@
 // Databricks notebook source
+display((dbutils.fs.ls("/mnt/poc_dlt_scenarios/SOH/") ++ dbutils.fs.ls("/mnt/poc_dlt_scenarios/SOL/")))
+
+// COMMAND ----------
+
+try {dbutils.fs.rm("/mnt/poc_dlt_scenarios/SOH",true)} catch {case _: Throwable => println("Silence!")} finally {  println("Zapped SOH*")}
+try {dbutils.fs.rm("/mnt/poc_dlt_scenarios/SOL",true)} catch {case _: Throwable => println("Silence!")} finally {  println("Zapped SOL*")}
+display((dbutils.fs.ls("/mnt/poc_dlt_scenarios/SOH/") ++ dbutils.fs.ls("/mnt/poc_dlt_scenarios/SOL/")))
+
+// COMMAND ----------
+
 // DBTITLE 1,ZAP Scenario 1 Json Files 
 try {dbutils.fs.rm("/mnt/poc_dlt_scenarios/SOH/SOH_1.json")} catch {case _: Throwable => println("Silence!")} finally {  println("Zapped SOH_1")}
 try {dbutils.fs.rm("/mnt/poc_dlt_scenarios/SOL/SOL_1.json")} catch {case _: Throwable => println("Silence!")} finally {  println("Zapped SOL_1")}

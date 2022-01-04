@@ -27,7 +27,7 @@
 --
 -- Scenario 5, 2021-12-05, Incoiming Order:29H99  Add 1 Line, Delete 1 Line ,   Order:3H3333 Delete Order Line received yesterday (without header)
 -- SOH_5.json: {"HID":"3H3333","HDATE":"2021-12-05","HCUST":"","HCUSTNAME":"Alfred"}         -- DELETE  Header 3H3333  -- but does this also mean ZAP lines ... hmmm  SOH will be flagged "IsOrderDelete=True"  
--- SOL_5.json: <****Not Created****>                                                          -- NO SOL headers file received 
+-- SOL_5.json: <****Not Created****>                                                         -- NO SOL headers file received 
 
 
 -- COMMAND ----------
@@ -36,6 +36,10 @@
 select input_file_name() As FileName, TO_JSON(STRUCT(*)) AS JsonString 
 from json.`/mnt/poc_dlt_scenarios/SO*`
 ORDER BY REGEXP_REPLACE(input_file_name(),'^.+/SO[HL]_([^.]+).json','\$1'), FileName;
+
+-- COMMAND ----------
+
+DESCRIBE DLT_DB_POC_2.SOH_with_SOL_Array_latest
 
 -- COMMAND ----------
 
@@ -50,12 +54,12 @@ select * from DLT_DB_POC_2.S2_inc_SOHL_array_unduped  order by OrdNumDiv1K, OrdN
 -- COMMAND ----------
 
 -- DBTITLE 1,Current State of Ingested RAW Sales Order Header Data (BRONZE)
-select * EXCEPT (TriggerSourceEventId)  from DLT_DB_POC_2.B0_inc_SOH_raw_json
+select * /* EXCEPT (TriggerSourceEventId)*/  from DLT_DB_POC_2.B0_inc_SOH_raw_json
 
 -- COMMAND ----------
 
 -- DBTITLE 1,Current State of Ingested RAW Sales Order LINE Data (BRONZE)
-select * EXCEPT (TriggerSourceEventId) from DLT_DB_POC_2.B0_inc_SOL_raw_json
+select * /* EXCEPT (TriggerSourceEventId) */ from DLT_DB_POC_2.B0_inc_SOL_raw_json
 
 
 -- COMMAND ----------
@@ -71,7 +75,7 @@ select * from DLT_DB_POC_2.B1_inc_SOL_ingest
 -- COMMAND ----------
 
 -- DBTITLE 1,What Orders (either SOH or SOL) were processed per Pipeline Run (watermark)
-select distinct * from DLT_DB_POC_2.B2_inc_SOHL_keys_this_run
+select * from DLT_DB_POC_2.B2_inc_SOHL_keys_this_run
 
 -- COMMAND ----------
 
