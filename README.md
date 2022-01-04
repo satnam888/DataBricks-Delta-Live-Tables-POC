@@ -7,7 +7,13 @@ DAG: Final Table is SOH + ARRAY(SOL) LATEST view after edits
 A  purely learning exercise for a new Databricks feature called "Delta Live Tables" (DLT) which is currently under pre-release stage.
 
 ### Goal: 
-Create a (deliberately over complex) Pipeline, which when run over 5 scenarios (detailed below), ingests and processes/transforms raw json Order+Lines data with the final materialised table `SOH_with_SOL_Array_latest` showing the "latest" view of an Order along with a STRUCT ARRAY of Order lines. This table can be queried as a single table to get ALL data for a SINGLE order at once without joining to anything else.
+Create a (deliberately over complex) Pipeline, which when run over 5 scenarios (detailed below), ingests and processes/transforms raw json Order+Lines data with the table `SOH_with_SOL_Array_latest` showing the "latest" view of an Order along with a STRUCT ARRAY of Order lines. 
+
+The table row is self-healing in terms of header and line based data auto-rebuilds itself on any change so there is no need to "rebuild" whole table as a materialisation each time an update is received.
+            
+This table can be queried as a single table to get ALL data for a SINGLE order at once without joining to anything else.
+            
+To query a "previous" version of an order - one can use table `S2_inc_SOHL_array_unduped`.            
 
 ### Pipeline details
 
