@@ -3,16 +3,27 @@ display((dbutils.fs.ls("/mnt/poc_dlt_scenarios/SOH/") ++ dbutils.fs.ls("/mnt/poc
 
 // COMMAND ----------
 
+// MAGIC %sql
+// MAGIC DROP DATABASE IF EXISTS DLT_DB_POC_2 CASCADE
+
+// COMMAND ----------
+
+// zap pipeline created folder for full clear down
+try {dbutils.fs.rm("/mnt/poc_pipeline_2",true)} catch {case _: Throwable => println("Silence!")} finally {  println("Zapped /mnt/poc_pipeline_2")}
+try {display(dbutils.fs.ls("/mnt/poc_pipeline_2/"))} catch {case _: Throwable => println("Nothing Found!")} finally {}
+
+// COMMAND ----------
+
+// zap all POC json files in one go
 try {dbutils.fs.rm("/mnt/poc_dlt_scenarios/SOH",true)} catch {case _: Throwable => println("Silence!")} finally {  println("Zapped SOH*")}
 try {dbutils.fs.rm("/mnt/poc_dlt_scenarios/SOL",true)} catch {case _: Throwable => println("Silence!")} finally {  println("Zapped SOL*")}
-display((dbutils.fs.ls("/mnt/poc_dlt_scenarios/SOH/") ++ dbutils.fs.ls("/mnt/poc_dlt_scenarios/SOL/")))
+try {display((dbutils.fs.ls("/mnt/poc_dlt_scenarios/SOH/") ++ dbutils.fs.ls("/mnt/poc_dlt_scenarios/SOL/")))} catch {case _: Throwable => println("Nothing Found!")} finally {}
 
 // COMMAND ----------
 
 // DBTITLE 1,ZAP Scenario 1 Json Files 
 try {dbutils.fs.rm("/mnt/poc_dlt_scenarios/SOH/SOH_1.json")} catch {case _: Throwable => println("Silence!")} finally {  println("Zapped SOH_1")}
 try {dbutils.fs.rm("/mnt/poc_dlt_scenarios/SOL/SOL_1.json")} catch {case _: Throwable => println("Silence!")} finally {  println("Zapped SOL_1")}
-
 display((dbutils.fs.ls("/mnt/poc_dlt_scenarios/SOH/") ++ dbutils.fs.ls("/mnt/poc_dlt_scenarios/SOL/")))
 
 // COMMAND ----------

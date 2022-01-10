@@ -157,25 +157,54 @@ FROM STREAM(live.B0_inc_SOL_raw_json) L
 -- COMMAND ----------
 
 -- DBTITLE 1,Use Incremental INGESTED data to work out which ORDERS (across SOH/SOL) we need to consider for appending to existing tables.
+-- CREATE INCREMENTAL LIVE TABLE B2_inc_SOHL_keys_this_run 
+-- PARTITIONED BY (AppendWaterMark,OrdNumDiv1K) -- can we use coonstraint to eliminate duplicates!  + Quaraninte s- GOOD FAIL
+-- COMMENT "Bronze Stage 2 DLT Incremental INGESTED SOH/SOL data to work out which ORDERS we need to (append) build going forward."
+-- TBLPROPERTIES ("Quality" = "Bronze", "HasPII" = "No", "pipelines.cdc.tombstoneGCThresholdInSeconds" = "900")
+-- AS 
+-- SELECT AppendWaterMark,OrdNumDiv1K,OrdNum
+-- FROM (
+--  SELECT 
+--    H.AppendWaterMark,
+--    H.OrdNumDiv1K,
+--    H.OrdNum
+--  FROM STREAM(live.B1_inc_SOH_ingest) H 
+--  UNION ALL
+--  SELECT 
+--    L.AppendWaterMark,
+--    L.OrdNumDiv1K,
+--    L.OrdNum
+--  FROM STREAM(live.B1_inc_SOL_ingest) L
+-- )
+
+-- COMMAND ----------
+
+-- DBTITLE 1,Use Incremental INGESTED data to work out which ORDERS (across SOH/SOL) we need to consider for appending to existing tables.
 CREATE INCREMENTAL LIVE TABLE B2_inc_SOHL_keys_this_run
-PARTITIONED BY (AppendWaterMark,OrdNumDiv1K) -- can we use cointrtaint to eliminate duplicates!  + Quaraninte s- GOOD FAIL
+PARTITIONED BY (AppendWaterMark,OrdNumDiv1K)
 COMMENT "Bronze Stage 2 DLT Incremental INGESTED SOH/SOL data to work out which ORDERS we need to (append) build going forward."
-TBLPROPERTIES ("Quality" = "Silver", "HasPII" = "MayBe", "pipelines.autoOptimize.zOrderCols" = "OrdNum", "pipelines.cdc.tombstoneGCThresholdInSeconds" = "900")
-AS 
-SELECT AppendWaterMark,OrdNumDiv1K,OrdNum
+TBLPROPERTIES ("Quality" = "Bronze", "HasPII" = "No", "pipelines.cdc.tombstoneGCThresholdInSeconds" = "900");
+APPLY CHANGES INTO live.B2_inc_SOHL_keys_this_run 
 FROM (
   SELECT 
-    H.AppendWaterMark,
-    H.OrdNumDiv1K,
-    H.OrdNum
-  FROM STREAM(live.B1_inc_SOH_ingest) H 
+    AppendWaterMark,
+    OrdNumDiv1K,
+    OrdNum,
+    AppendWaterMark as LogicalOrderColumn
+  FROM STREAM(live.B1_inc_SOH_ingest)
   UNION ALL
   SELECT 
-    L.AppendWaterMark,
-    L.OrdNumDiv1K,
-    L.OrdNum
-  FROM STREAM(live.B1_inc_SOL_ingest) L
+    AppendWaterMark,
+    OrdNumDiv1K,
+    OrdNum,
+    AppendWaterMark as LogicalOrderColumn
+  FROM STREAM(live.B1_inc_SOL_ingest)
  )
+KEYS (AppendWaterMark,OrdNumDiv1K, OrdNum)
+SEQUENCE BY LogicalOrderColumn
+COLUMNS * EXCEPT(LogicalOrderColumn)
+;
+
 
 -- COMMAND ----------
 
